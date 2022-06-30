@@ -1,0 +1,21 @@
+en_token_dict: 'data/lc/train.en.txt'
+de_token_dict: 'data/lc/train.de.txt'
+train_source_dir: 'data/lc/train.en'
+train_target_dir: 'data/lc/train.de'
+val_source_dir: 'data/lc/val.en'
+val_target_dir: 'data/lc/val.de'
+test_source_dir: 'data/lc/test16.en'
+test_target_dir: 'data/lc/test16.de'
+save_model_path: 'saved_model_lc'
+
+smooth: True
+share_embedding: False
+batch_size: 32
+epochs: 100
+max_len: 50
+hidden_size: 256
+inter_hidden_size: 256
+n_layer: 4
+n_head: 8
+dropout_rate: 0.5
+attention_dropout_rate: 0.1

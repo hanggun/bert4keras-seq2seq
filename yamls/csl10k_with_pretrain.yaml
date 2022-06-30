@@ -1,0 +1,22 @@
+token_dict: 'D:\PekingInfoResearch\pretrain_models\chinese_GAU-alpha-char_L-24_H-768/vocab.txt'
+train_source_dir: 'data/csl_10k/train.tok.source'
+train_target_dir: 'data/csl_10k/train.tok.target'
+val_source_dir: 'data/csl_10k/val.tok.source'
+val_target_dir: 'data/csl_10k/val.tok.target'
+test_source_dir: 'data/csl_10k/test.tok.source'
+test_target_dir: 'data/csl_10k/test.tok.target'
+save_model_path: 'saved_model_csl'
+
+checkpoint_path: 'D:\PekingInfoResearch\pretrain_models\chinese_GAU-alpha-char_L-24_H-768\bert_model.ckpt'
+config_path: 'D:\PekingInfoResearch\pretrain_models\chinese_GAU-alpha-char_L-24_H-768\bert_config.json'
+smooth: False
+share_embedding: True
+batch_size: 6
+epochs: 100
+max_len: 256
+hidden_size: 768
+inter_hidden_size: 3072
+n_layer: 6
+n_head: 8
+dropout_rate: 0.1
+attention_dropout_rate: 0.1

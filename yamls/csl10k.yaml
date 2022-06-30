@@ -1,0 +1,21 @@
+en_token_dict: 'data/csl_10k/vocab.txt'
+de_token_dict: 'data/csl_10k/vocab.txt'
+train_source_dir: 'data/csl_10k/train.tok.source'
+train_target_dir: 'data/csl_10k/train.tok.target'
+val_source_dir: 'data/csl_10k/val.tok.source'
+val_target_dir: 'data/csl_10k/val.tok.target'
+test_source_dir: 'data/csl_10k/test.tok.source'
+test_target_dir: 'data/csl_10k/test.tok.target'
+save_model_path: 'saved_model_csl'
+
+smooth: True
+share_embedding: True
+batch_size: 16
+epochs: 100
+max_len: 256
+hidden_size: 256
+inter_hidden_size: 256
+n_layer: 4
+n_head: 8
+dropout_rate: 0.5
+attention_dropout_rate: 0.1
