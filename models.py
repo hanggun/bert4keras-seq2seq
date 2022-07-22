@@ -1,7 +1,7 @@
 #! -*- coding: utf-8 -*-
 # 基于bert4keras的seq2seq模型
 from bert4keras.layers import *
-from bert4keras.models import Transformer, extend_with_language_model, RoFormerV2
+from bert4keras.models import Transformer, RoFormerV2, LM_Mask
 
 
 class EncodeLayer(Transformer):
@@ -155,7 +155,7 @@ class EncodeLayer(Transformer):
         return inputs
 
 
-class DecodeLayer(Transformer):
+class DecodeLayer(LM_Mask, Transformer):
     """
     从Transformer基类继承
     """
@@ -472,9 +472,7 @@ if __name__ == '__main__':
         dropout_rate=0.1,
         attention_dropout_rate=0.1
     )
-    model = DecodeLayer
-    model = extend_with_language_model(model)
-    decode_layer = model(
+    decode_layer = DecodeLayer(
         vocab_size=1200,
         hidden_size=768,
         num_hidden_layers=4,
