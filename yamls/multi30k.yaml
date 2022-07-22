@@ -1,18 +1,32 @@
-en_token_dict: 'data/lc/train.en.txt'
-de_token_dict: 'data/lc/train.de.txt'
-train_source_dir: 'data/lc/train.en'
-train_target_dir: 'data/lc/train.de'
-val_source_dir: 'data/lc/val.en'
-val_target_dir: 'data/lc/val.de'
-test_source_dir: 'data/lc/test16.en'
-test_target_dir: 'data/lc/test16.de'
-save_model_path: 'saved_model_lc'
+train:
+  train_mode: True
+  eval_num_samples: 100
+evaluate:
+  train_mode: False
+  eval_num_samples: # None
+en_token_dict: 'data/multi30k/train.en.txt'
+de_token_dict: 'data/multi30k/train.de.txt'
+train_source_dir: 'data/multi30k/train.en'
+train_target_dir: 'data/multi30k/train.de'
+val_source_dir: 'data/multi30k/val.en'
+val_target_dir: 'data/multi30k/val.de'
+test_source_dir: 'data/multi30k/test16.en'
+test_target_dir: 'data/multi30k/test16.de'
+save_model_path: 'saved_model/multi30k/best_model1.weights'
+log_dir: 'logs/'
 
+
+belu_callback: False # if True save best model with belu score, else with best accuracy or loss
 smooth: True
+continue_train: False # if True continue train from existing checkpoint but need to change the initial learning rate
+initial_epoch: 0 # not useful for now
 share_embedding: False
+learning_rate: 0.0007
 batch_size: 32
 epochs: 100
-max_len: 50
+max_c_len: 50
+max_t_len: 50
+seed: 42
 hidden_size: 256
 inter_hidden_size: 256
 n_layer: 4
