@@ -22,8 +22,8 @@ import sentencepiece as sp
 import tensorflow as tf
 import tensorflow_datasets as tds
 
-from configs.config import DecoderConfig
-from utils import file_util
+from asr_utils.features.config import DecoderConfig
+from asr_utils.features import file_util
 
 ENGLISH_CHARACTERS = [
     " ",

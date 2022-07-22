@@ -16,7 +16,7 @@
 import numpy as np
 import tensorflow as tf
 
-from models.tensorflowasr.shape_util import shape_list
+from asr_utils.features.shape_util import shape_list
 
 pi = tf.constant(np.pi, dtype=tf.complex64)
 

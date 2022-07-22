@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import tensorflow as tf
-from features.base_method import AugmentationMethod
-from models.tensorflowasr import shape_util
+from asr_utils.features.base_method import AugmentationMethod
+from asr_utils.features.shape_util import shape_list
 from config import config
 tf.random.set_seed(config.seed)
 
@@ -33,7 +33,7 @@ class FreqMasking(AugmentationMethod):
         Returns:
             frequency masked spectrogram
         """
-        T, F, V = shape_util.shape_list(spectrogram, out_type=tf.int32)
+        T, F, V = shape_list(spectrogram, out_type=tf.int32)
         for _ in range(self.num_masks):
             f = tf.random.uniform([], minval=0, maxval=self.mask_factor, dtype=tf.int32)
             f = tf.minimum(f, F)
@@ -65,7 +65,7 @@ class TimeMasking(AugmentationMethod):
         Returns:
             frequency masked spectrogram
         """
-        T, F, V = shape_util.shape_list(spectrogram, out_type=tf.int32)
+        T, F, V = shape_list(spectrogram, out_type=tf.int32)
         for _ in range(self.num_masks):
             t = tf.random.uniform([], minval=0, maxval=self.mask_factor, dtype=tf.int32)
             t = tf.minimum(t, tf.cast(tf.cast(T, dtype=tf.float32) * self.p_upperbound, dtype=tf.int32))

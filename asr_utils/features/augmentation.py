@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import tensorflow as tf
-from features import specaugment
+from asr_utils.features import specaugment
 from config import config
 
 AUGMENTATIONS = {
