@@ -1,20 +1,21 @@
 #! -*- coding: utf-8 -*-
 # 基于bert4keras的seq2seq模型
 from bert4keras.layers import *
-from bert4keras.models import Transformer, RoFormerV2, LM_Mask
+from bert4keras.models import Transformer, RoFormerV2, LM_Mask, Model
 
 
 class EncodeLayer(Transformer):
     """
     从Transformer基类继承
     """
+
     def __init__(self, **kwargs):
         super(EncodeLayer, self).__init__(**kwargs)  # 将多余参数送到父类进行初始化
 
     def get_inputs(self):
         """重写get_inputs，输入仅为token_ids"""
         x_in = self.apply(
-            layer=Input, shape=(self.sequence_length,), name='Input-Token'
+            layer=Input, shape=(self.sequence_length,), name='Encoder-Input-Token'
         )
         inputs = [x_in]
 
@@ -38,8 +39,8 @@ class EncodeLayer(Transformer):
         x = self.apply(
             inputs=x,
             layer=Lambda,
-            function=lambda x: x*self.hidden_size**0.5,
-            name='Encode-Scale'
+            function=lambda x: x * self.hidden_size ** 0.5,
+            name='Scale'
         )
 
         x = self.apply(
@@ -56,14 +57,14 @@ class EncodeLayer(Transformer):
             hidden_units=self.layer_norm_conds[1],
             hidden_activation=self.layer_norm_conds[2],
             hidden_initializer=self.initializer,
-            name='Embedding-Norm'
+            name='Encoder-Embedding-Norm'
         )
 
         x = self.apply(
             inputs=x,
             layer=Dropout,
             rate=self.dropout_rate,
-            name='Embedding-Dropout'
+            name='Encoder-Embedding-Dropout'
         )
 
         if self.embedding_size != self.hidden_size:
@@ -72,7 +73,7 @@ class EncodeLayer(Transformer):
                 layer=Dense,
                 units=self.hidden_size,
                 kernel_initializer=self.initializer,
-                name='Embedding-Mapping'
+                name='Encoder-Embedding-Mapping'
             )
 
         return x
@@ -81,16 +82,17 @@ class EncodeLayer(Transformer):
         """重写apply_main_layers，主要为multihead-attention，add and norm， FFN，add and norm"""
         x = inputs
         z = self.layer_norm_conds[0]
-        attention_name = 'Transformer-%d-MultiHeadSelfAttention' % index
-        feed_forward_name = 'Transformer-%d-FeedForward' % index
+        attention_name = 'Encoder-Transformer-%d-MultiHeadSelfAttention' % index
+        feed_forward_name = 'Encoder-Transformer-%d-FeedForward' % index
 
-        xi, x, arguments = x, [x, x, x], {'a_bias': None}
-
-        # 普通的多层注意力机制
+        xi = x
+        # self-attention
         x = self.apply(
-            inputs=x,
+            inputs=[x, x, x],
             layer=MultiHeadAttention,
-            arguments=arguments,
+            arguments={
+                'a_bias': None
+            },
             heads=self.num_attention_heads,
             head_size=self.attention_head_size,
             out_dim=self.hidden_size,
@@ -159,33 +161,29 @@ class DecodeLayer(LM_Mask, Transformer):
     """
     从Transformer基类继承
     """
+
     def __init__(self,
-                 with_mlm=False,
-                 embedding=None,  # 是否选择跳过最终层，跳过可以使用编码器的嵌入层进行输出
                  **kwargs):
         super(DecodeLayer, self).__init__(**kwargs)  # 将多余参数送到父类进行初始化
-        self.with_mlm = with_mlm
-        self.embedding = embedding
 
     def get_inputs(self):
         """重写get_inputs，输入为target token_ids和encoder output"""
-        x_in = self.apply(
-            layer=Input, shape=(self.sequence_length,), name='Input-Token'
+        x = self.apply(
+            layer=Input, shape=(self.sequence_length,), name='Decoder-Input-Token'
         )
-        encoder_output = self.apply(
-            layer=Input, shape=(self.sequence_length, self.hidden_size), name='Encoder-Output'
+        c = self.apply(
+            layer=Input, shape=(self.sequence_length, self.hidden_size), name='Input-Context'
         )
-        inputs = [x_in, encoder_output]
+        inputs = [c, x]
 
         return inputs
 
     def apply_embeddings(self, inputs):
         """重写apply_embeddings，为target embedding加入position bias，encoder-output直接输出"""
-        inputs = inputs[:]  # 浅拷贝
-        x = inputs.pop(0)
-        y = inputs.pop(0)
+        c, x = inputs
         z = self.layer_norm_conds[0]
 
+        # Embedding token, scale 和 sinusoidal 共用
         x = self.apply(
             inputs=x,
             layer=Embedding,
@@ -199,7 +197,7 @@ class DecodeLayer(LM_Mask, Transformer):
             inputs=x,
             layer=Lambda,
             function=lambda x: x * self.hidden_size ** 0.5,
-            name='Encode-Scale'
+            name='Scale'
         )
 
         x = self.apply(
@@ -216,14 +214,14 @@ class DecodeLayer(LM_Mask, Transformer):
             hidden_units=self.layer_norm_conds[1],
             hidden_activation=self.layer_norm_conds[2],
             hidden_initializer=self.initializer,
-            name='Embedding-Norm'
+            name='Decoder-Embedding-Norm'
         )
 
         x = self.apply(
             inputs=x,
             layer=Dropout,
             rate=self.dropout_rate,
-            name='Embedding-Dropout'
+            name='Decoder-Embedding-Dropout'
         )
 
         if self.embedding_size != self.hidden_size:
@@ -232,30 +230,28 @@ class DecodeLayer(LM_Mask, Transformer):
                 layer=Dense,
                 units=self.hidden_size,
                 kernel_initializer=self.initializer,
-                name='Embedding-Mapping'
+                name='Decoder-Embedding-Mapping'
             )
 
-        return [x, y]
+        return [c, x]
 
     def apply_main_layers(self, inputs, index):
         """重写apply_main_layers，主要为masked-multihead-attention->add and norm->multihead-attention->add and norm
         ->FFN->add and norm"""
-        inputs = inputs[:]  # 浅拷贝
-        x = inputs.pop(0)
-        encoder_output = inputs.pop(0)
+        c, x = inputs
         z = self.layer_norm_conds[0]
-        attention_name = 'Transformer-%d-MultiHeadSelfAttention' % index
-        feed_forward_name = 'Transformer-%d-FeedForward' % index
+        attention_name = 'Decoder-Transformer-%d-MultiHeadSelfAttention' % index
+        feed_forward_name = 'Decoder-Transformer-%d-FeedForward' % index
 
         # 第一层self-attention的mask为时序mask，避免预测时看到后面的信息
         attention_mask = self.compute_attention_bias(index)
-        xi, x, arguments = x, [x, x, x], {'a_bias': True}
-        x.append(attention_mask)
-
+        xi = x
         x = self.apply(
-            inputs=x,
+            inputs=[x, x, x, attention_mask],
             layer=MultiHeadAttention,
-            arguments=arguments,
+            arguments={
+                'a_bias': True
+            },
             heads=self.num_attention_heads,
             head_size=self.attention_head_size,
             out_dim=self.hidden_size,
@@ -285,12 +281,14 @@ class DecodeLayer(LM_Mask, Transformer):
         )
 
         # 第二层cross-attention
-        xi, x, arguments = x, [x, encoder_output, encoder_output], {'a_bias': None}
+        xi = x
 
         x = self.apply(
-            inputs=x,
+            inputs=[x, c, c],
             layer=MultiHeadAttention,
-            arguments=arguments,
+            arguments={
+                'a_bias': None
+            },
             heads=self.num_attention_heads,
             head_size=self.attention_head_size,
             out_dim=self.hidden_size,
@@ -347,22 +345,18 @@ class DecodeLayer(LM_Mask, Transformer):
             name='%s-Norm' % feed_forward_name
         )
 
-        return [x, encoder_output]
+        return [c, x]
 
     def apply_final_layers(self, inputs):
         """直接输出"""
-        inputs = inputs[:]
-        x = inputs.pop(0)
+        c, x = inputs
 
-        if self.embedding:
-            x = self.embedding(x, mode='dense')
-        else:
-            x = self.apply(
-                inputs=x,
-                layer=Embedding,
-                arguments={'mode': 'dense'},
-                name='Embedding-Token'
-            )
+        x = self.apply(
+            inputs=x,
+            layer=Embedding,
+            arguments={'mode': 'dense'},
+            name='Embedding-Token'
+        )
         x = self.apply(
             inputs=x, layer=ScaleOffset, scale=False, name='Seq2seq-Bias'
         )
@@ -375,12 +369,53 @@ class DecodeLayer(LM_Mask, Transformer):
 
         return x
 
+    def compute_attention_bias(self, inputs=None):
+        """修改LM Mask的序列长度（从 self.inputs[0] 改为 self.inputs[1] ）
+        """
+        old_inputs = self.inputs[:]
+        self.inputs = [old_inputs[1]]
+        mask = super(DecodeLayer, self).compute_attention_bias(inputs)
+        self.inputs = old_inputs
+        return mask
+
+
+class Seq2Seq(Transformer):
+    def __init__(self, **kwargs):
+        super(Seq2Seq, self).__init__(**kwargs)
+        kwargs['layers'] = self.layers
+        e_name, d_name = 'Encoder', 'Decoder'
+        if 'name' in kwargs:
+            e_name = '%s_%s' % (kwargs['name'], e_name)
+            d_name = '%s_%s' % (kwargs['name'], d_name)
+            del kwargs['name']  # 防止重复传参
+        del kwargs['num_hidden_layers']
+        self._encoder = EncodeLayer(name=e_name,
+                                    num_hidden_layers=kwargs['enc_num_hidden_layers'],
+                                    **kwargs)
+        self._decoder = DecodeLayer(name=d_name,
+                                    num_hidden_layers=kwargs['dec_num_hidden_layers'],
+                                    **kwargs)
+
+    def build(self, **kwargs):
+        """同时构建Encoder和Decoder
+        """
+        self._encoder.build(**kwargs)
+        self._decoder.build(**kwargs)
+        self.encoder = self._encoder.model
+        self.decoder = self._decoder.model
+        self.inputs = self.encoder.inputs + self.decoder.inputs[1:]
+        self.outputs = self._decoder.call(
+            self.encoder.outputs + self.decoder.inputs[1:]
+        )
+        self.model = Model(self.inputs, self.outputs)
+
 
 class GAU_alpha(RoFormerV2):
     """GAU-α
     改动：基本模块换成GAU
     链接：https://kexue.fm/archives/9052
     """
+
     def initializer(self, shape, dtype=None, order=3, gain=1.0):
         return super(GAU_alpha, self).initializer(shape, dtype, order, gain)
 
@@ -461,6 +496,7 @@ class GAU_alpha(RoFormerV2):
 if __name__ == '__main__':
     import os
     import numpy as np
+
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     encode_layer = EncodeLayer(
         vocab_size=1000,
@@ -488,6 +524,6 @@ if __name__ == '__main__':
     seq2seq_output = decode_layer.call([decode_layer.inputs[0], encode_layer.output])
     seq2seq_model = keras.models.Model([encode_layer.input, decode_layer.inputs[0]], seq2seq_output)
     # inter_model = keras.Model(model.inputs, encode_layer.layers['Transformer-0-MultiHeadSelfAttention'].output)
-    inputs = np.ones((20,256))
+    inputs = np.ones((20, 256))
     target_inputs = np.ones((20, 250))
     print(np.array(seq2seq_model.predict([inputs, target_inputs])))

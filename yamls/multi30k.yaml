@@ -12,7 +12,7 @@ val_source_dir: 'data/multi30k/val.en'
 val_target_dir: 'data/multi30k/val.de'
 test_source_dir: 'data/multi30k/test16.en'
 test_target_dir: 'data/multi30k/test16.de'
-save_model_path: 'saved_model/multi30k/best_model1.weights'
+save_model_path: 'saved_model/multi30k/best_model.weights'
 log_dir: 'logs/'
 
 

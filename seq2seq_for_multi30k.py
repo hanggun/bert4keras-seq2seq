@@ -1,17 +1,19 @@
+from config import config
 from bert4keras.tokenizers import Tokenizer
 from bert4keras.snippets import DataGenerator, sequence_padding, AutoRegressiveDecoder
 from bert4keras.optimizers import Adam, extend_with_piecewise_linear_lr
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-from config import config
 from rouge import Rouge
 from tqdm import tqdm
 from models import *
 from pathlib import Path
 from datetime import datetime
 
-import tensorflow as tf
-tf.set_random_seed(config.seed)
 import os
+import tensorflow as tf
+import numpy as np
+np.random.seed(config.seed)
+tf.set_random_seed(config.seed)
 
 # 如果使用相同的词表，则使用相同的token_dict即可
 en_tokenizer = Tokenizer(
@@ -42,7 +44,7 @@ class data_generator(DataGenerator):
                 yield [batch_source_ids, batch_target_ids], None
                 batch_source_ids, batch_target_ids = [], []
 
-
+# 词表不同，将Encoder和Decoder分开创建
 encode_layer = EncodeLayer(
     vocab_size=en_tokenizer._vocab_size,
     hidden_size=config.hidden_size,
@@ -54,10 +56,6 @@ encode_layer = EncodeLayer(
     attention_dropout_rate=config.attention_dropout_rate,
 )
 encode_layer.build()
-if config.share_embedding:
-    embedding = encode_layer.layers['Embedding-Token']
-else:
-    embedding = None
 decode_layer = DecodeLayer(
     vocab_size=de_tokenizer._vocab_size,
     hidden_size=config.hidden_size,
@@ -67,11 +65,10 @@ decode_layer = DecodeLayer(
     hidden_act='relu',
     dropout_rate=config.dropout_rate,
     attention_dropout_rate=config.attention_dropout_rate,
-    prefix='Decoder',
-    embedding=embedding
+    prefix='Decoder',  # 让编码层和解码层的名字不一样
 )
 decode_layer.build()
-decoder_output = decode_layer.call([decode_layer.inputs[0], encode_layer.output])
+decoder_output = decode_layer.call([encode_layer.output, decode_layer.inputs[1]])
 loss_fn = keras.losses.CategoricalCrossentropy(reduction='none')
 class CrossEntropy(Loss):
     """交叉熵作为loss，并mask掉输入部分
@@ -95,8 +92,8 @@ class CrossEntropy(Loss):
 
         return loss
 
-seq2seq_output = CrossEntropy([1])([decode_layer.inputs[0], decoder_output])
-seq2seq_model = keras.models.Model([encode_layer.input, decode_layer.inputs[0]], seq2seq_output)
+seq2seq_output = CrossEntropy([1])([decode_layer.inputs[1], decoder_output])
+seq2seq_model = keras.models.Model([encode_layer.input, decode_layer.inputs[1]], seq2seq_output)
 
 # 以先线性增长后线性递减学习率作为transformer的学习率
 Adamp = extend_with_piecewise_linear_lr(Adam)
