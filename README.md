@@ -15,7 +15,7 @@ The result can be seen below:</br>
 |BERT+Deocder|CSL-test|0.6189|0.4430|0.5743|0.3326|
 
 ### Updates 2022.7.22
-- To simplify the training and testing procedure, the train file is reconstructed. Now, just set `is_train` mode in config file, choose the right `.yaml` file, then run `python seq2seq_for_multi30k.py` and you can get the similar result for machine translation task.
+- To simplify the training and testing procedure, the train file is reconstructed. Now, just set `is_train` mode in config file, choose the right `.yaml` file, then run `python seq2seq_for_multi30k.py` or `python seq2seq_for_csl.py` and you can get the similar result for machine translation task.
 ### preprocessed data
 The preprocessed CSL data can be found in 链接：https://pan.baidu.com/s/1KEw25IJuj8ZLJD9JfjqzlQ 
 提取码：3n5g</br>
