@@ -3,19 +3,19 @@ An implementation of attention is all you need using bert4keras
 
 This repository gives three applications for two datasets: multi30k-en-de--machine translation dataset and CSL--title generation dataset
 
-For multi30k-en-de dataset, we use BPE tokenization, English dataset and German dataset do not share the same embedding. For CSL chinese dataset, we use simplified BERT tokenization.
+For multi30k-en-de dataset, we use BPE tokenization, English dataset and German dataset do not share the same embedding. For CSL chinese dataset, we use tokenizer with GAU vocab.
 
-For machine translation dataset, we only use transformer architecture; For CSL NLG dataset, in addition to transformer, we also apply a BERT+Decoder architecture.
+For machine translation dataset, we only use transformer architecture; For CSL NLG dataset, in addition to transformer, we also apply a BERT+Decoder architecture. Note that BERT+Decoder can achieve a similar performance with Unilm version. The reason that Seq2Seq model does not perform well in CSL dataset is that the training datase is small and in autoregressive mode, previous wrong word will have great impact on the subsequent predicted words.
 
 The result can be seen below:</br>
 |model|dataset|rouge-1|rouge-2|rouge-l|bleu|
 |:---:|:---:|:---:|:---:|:---:|:---:|
 |seq2seq|multi30k-en-de-test2016|0.6817|0.4727|0.6551|0.3547|
 |seq2seq|CSL-test|0.4366|0.2528|0.3853|0.1517|
-|BERT+Deocder|CSL-test|0.6189|0.4430|0.5743|0.3326|
+|BERT+Deocder|CSL-test|0.6597|0.5384|0.6272|0.4386|
 
 ### Updates 2022.7.22
-- To simplify the training and testing procedure, the train file is reconstructed. Now, just set `is_train` mode in config file, choose the right `.yaml` file, then run `python seq2seq_for_multi30k.py` or `python seq2seq_for_csl.py` and you can get the similar result for machine translation task.
+- To simplify the training and testing procedure, the train file is reconstructed. Now, just set `is_train` mode in config file, choose the right `.yaml` file, then run `python seq2seq_for_multi30k.py` or `python seq2seq_for_csl.py` or `python seq2seq_of_gau_encoder_for_csl` and you can get the similar result for machine translation task and NLG task.
 ### preprocessed data
 The preprocessed CSL data can be found in 链接：https://pan.baidu.com/s/1KEw25IJuj8ZLJD9JfjqzlQ 
 提取码：3n5g</br>

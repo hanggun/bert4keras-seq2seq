@@ -1,22 +1,34 @@
-token_dict: 'D:\PekingInfoResearch\pretrain_models\chinese_GAU-alpha-char_L-24_H-768/vocab.txt'
-train_source_dir: 'data/csl_10k/train.tok.source'
-train_target_dir: 'data/csl_10k/train.tok.target'
-val_source_dir: 'data/csl_10k/val.tok.source'
-val_target_dir: 'data/csl_10k/val.tok.target'
-test_source_dir: 'data/csl_10k/test.tok.source'
-test_target_dir: 'data/csl_10k/test.tok.target'
-save_model_path: 'saved_model_csl'
-
-checkpoint_path: 'D:\PekingInfoResearch\pretrain_models\chinese_GAU-alpha-char_L-24_H-768\bert_model.ckpt'
+train:
+  train_mode: True
+  eval_num_samples: 100
+evaluate:
+  train_mode: False
+  eval_num_samples:  # None
+token_dict: 'D:\PekingInfoResearch\pretrain_models\chinese_GAU-alpha-char_L-24_H-768\vocab.txt'
 config_path: 'D:\PekingInfoResearch\pretrain_models\chinese_GAU-alpha-char_L-24_H-768\bert_config.json'
+checkpoint_path: 'D:\PekingInfoResearch\pretrain_models\chinese_GAU-alpha-char_L-24_H-768\bert_model.ckpt'
+train_dir: 'D:\open_data\summarization\csl/train.tsv'
+val_dir: 'D:\open_data\summarization\csl/val.tsv'
+test_dir: 'D:\open_data\summarization\csl/test.tsv'
+save_model_path: 'saved_model/csl_10k_pretrain/best_model.weights'
+log_dir: 'logs/'
+
+belu_callback: False # if True save best model with belu score, else with best accuracy or loss
 smooth: False
-share_embedding: True
-batch_size: 6
+continue_train: False # if True continue train from existing checkpoint but need to change the initial learning rate
+initial_epoch: 0 # not useful for now
+learning_rate: 0.00003
+warmup: 600
+batch_size: 4
 epochs: 100
-max_len: 256
+max_c_len: 256
+max_t_len: 32
+seed: 42
 hidden_size: 768
-inter_hidden_size: 3072
-n_layer: 6
+inter_hidden_size: 768
+enc_n_layer: 4
+dec_n_layer: 4
 n_head: 8
-dropout_rate: 0.1
+attention_head_size: 64
+dropout_rate: 0.5
 attention_dropout_rate: 0.1
