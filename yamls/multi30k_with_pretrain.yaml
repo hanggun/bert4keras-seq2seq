@@ -4,34 +4,36 @@ train:
 evaluate:
   train_mode: False
   eval_num_samples: # None
-en_token_dict: 'data/multi30k/train.en.txt' # processed from build_dictionary.py
+config_path: 'D:\PekingInfoResearch\pretrain_models\english_uncased_L-12_H-768_A-12\bert_config.json'
+checkpoint_path: 'D:\PekingInfoResearch\pretrain_models\english_uncased_L-12_H-768_A-12\bert_model.ckpt'
+en_token_dict: 'D:\PekingInfoResearch\pretrain_models\english_uncased_L-12_H-768_A-12\vocab.txt'
 de_token_dict: 'data/multi30k/train.de.txt'
-train_source_dir: 'data/multi30k/train.en'
+train_source_dir: 'data/multi30k/train.lc.norm.tok.en.txt'
 train_target_dir: 'data/multi30k/train.de'
-val_source_dir: 'data/multi30k/val.en'
+val_source_dir: 'data/multi30k/val.lc.norm.tok.en.txt'
 val_target_dir: 'data/multi30k/val.de'
-test_source_dir: 'data/multi30k/test16.en'
+test_source_dir: 'data/multi30k/test_2016_flickr.lc.norm.tok.en.txt'
 test_target_dir: 'data/multi30k/test16.de'
-save_model_path: 'saved_model/multi30k/best_model.weights'
+save_model_path: 'saved_model/multi30k_with_pretrian/best_model.weights'
 log_dir: 'logs/'
-task_name: 'multi30k' # name for logs
+task_name: 'multi30k_with_pretrian' # name for logs
 model_name: 'roformer'
 
 
 belu_callback: False # if True save best model with belu score, else with best accuracy or loss
-smooth: True # True 可以加1的bleu
+smooth: True
 continue_train: False # if True continue train from existing checkpoint but need to change the initial learning rate
 initial_epoch: 0 # not useful for now
 share_embedding: False
-learning_rate: 0.0007
-batch_size: 32
+learning_rate: 0.00003
+batch_size: 6
 epochs: 100
 max_c_len: 50
 max_t_len: 50
 seed: 42
 hidden_act: 'relu'
-hidden_size: 256
-inter_hidden_size: 256
+hidden_size: 768
+inter_hidden_size: 768
 n_layer: 4
 n_head: 8
 dropout_rate: 0.5

@@ -1,7 +1,8 @@
 from config import config
 from bert4keras.tokenizers import Tokenizer
-from bert4keras.snippets import DataGenerator, sequence_padding, AutoRegressiveDecoder, K
-from bert4keras.optimizers import Adam, extend_with_piecewise_linear_lr
+from bert4keras.models import build_transformer_model
+from bert4keras.snippets import DataGenerator, sequence_padding, AutoRegressiveDecoder, K, keras
+from bert4keras.optimizers import Adam, extend_with_parameter_wise_lr
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from rouge import Rouge
 from tqdm import tqdm
@@ -33,36 +34,29 @@ de_tokenizer = Tokenizer(
 
 class data_generator(DataGenerator):
     def __iter__(self, random=False):
-        batch_source_ids, batch_target_ids = [], []
+        batch_source_ids, batch_segment_ids, batch_target_ids = [], [], []
         for is_end, d in self.sample(random):
             source, target = d
             # 英文BPE存在@，所以不能直接encode
-            source_tokens = ['[CLS]'] + source.strip().split()[:config.max_c_len-2] + ['[SEP]']
-            source_token_ids = en_tokenizer.tokens_to_ids(source_tokens)
+            source_token_ids, segment_ids = en_tokenizer.encode(source, maxlen=config.max_c_len)
             target_tokens = ['[CLS]'] + target.strip().split()[:config.max_t_len-2] + ['[SEP]']
             target_token_ids = de_tokenizer.tokens_to_ids(target_tokens)
 
             batch_source_ids.append(source_token_ids)
             batch_target_ids.append(target_token_ids)
+            batch_segment_ids.append(segment_ids)
             if len(batch_source_ids) == self.batch_size or is_end:
                 batch_source_ids = sequence_padding(batch_source_ids)
                 batch_target_ids = sequence_padding(batch_target_ids)
-                yield [batch_source_ids, batch_target_ids], None
-                batch_source_ids, batch_target_ids = [], []
+                batch_segment_ids = sequence_padding(batch_segment_ids)
+                yield [batch_source_ids, batch_segment_ids, batch_target_ids], None
+                batch_source_ids, batch_segment_ids, batch_target_ids = [], [], []
 
 # 词表不同，将Encoder和Decoder分开创建
-encode_layer = _MODEL_NAME[config.model_name][0](
-    vocab_size=en_tokenizer._vocab_size,
-    hidden_size=config.hidden_size,
-    num_hidden_layers=config.n_layer,
-    num_attention_heads=config.n_head,
-    intermediate_size=config.inter_hidden_size,
-    hidden_act=config.hidden_act,
-    dropout_rate=config.dropout_rate,
-    attention_dropout_rate=config.attention_dropout_rate,
-    max_position=512
+encode_layer = build_transformer_model(
+    config_path=config.config_path,
+    checkpoint_path=config.checkpoint_path
 )
-encode_layer.build()
 decode_layer = _MODEL_NAME[config.model_name][1](
     vocab_size=de_tokenizer._vocab_size,
     hidden_size=config.hidden_size,
@@ -76,7 +70,6 @@ decode_layer = _MODEL_NAME[config.model_name][1](
     max_position=512
 )
 decode_layer.build()
-decoder_output = decode_layer.call([encode_layer.output, decode_layer.inputs[1]])
 if config.smooth:
     loss_fn = keras.losses.CategoricalCrossentropy(reduction='none')
 else:
@@ -103,13 +96,14 @@ class CrossEntropy(Loss):
 
         return loss
 
-seq2seq_output = CrossEntropy([1])([decode_layer.inputs[1], decoder_output])
-seq2seq_model = keras.models.Model([encode_layer.input, decode_layer.inputs[1]], seq2seq_output)
+decoder_output = decode_layer.call(encode_layer.outputs + decode_layer.inputs[1:])
+seq2seq_output = CrossEntropy([1])(decode_layer.inputs[1:] + [decoder_output])
+seq2seq_model = keras.models.Model(encode_layer.inputs + decode_layer.inputs[1:], seq2seq_output)
 
-# 以先线性增长后线性递减学习率作为transformer的学习率
-Adamp = extend_with_piecewise_linear_lr(Adam)
+# bert的学习率为3e-5，decoder的学习率为1e-4
+Adamp = extend_with_parameter_wise_lr(Adam)
 seq2seq_model.compile(optimizer=Adamp(learning_rate=config.learning_rate,
-                                      lr_schedule={0: 0.0, 4000:1., 400000: 0.1},
+                                      paramwise_lr_schedule={'Decoder': 10/3},
                                       beta_1=0.9,
                                       beta_2=0.998,
                                       epsilon=1e-9))
@@ -121,11 +115,11 @@ class AutoSeq(AutoRegressiveDecoder):
     @AutoRegressiveDecoder.wraps(default_rtype='probas')
     def predict(self, inputs, output_ids, states):
         token_ids = inputs[0]
-        return self.last_token(seq2seq_model).predict([token_ids, output_ids])
+        segment_ids = np.array([[0] * token_ids.shape[1]])
+        return self.last_token(seq2seq_model).predict([token_ids, segment_ids, output_ids])
 
     def generate(self, text, topk=1):
-        text = ['[CLS]'] + text.split() + ['[SEP]']
-        token_ids = np.array([en_tokenizer.tokens_to_ids(text)])
+        token_ids = np.array([en_tokenizer.encode(text, maxlen=config.max_c_len)[0]])
         output_ids = self.beam_search(token_ids,
                                       topk=topk)  # 基于beam search
         return de_tokenizer.ids_to_tokens(output_ids)

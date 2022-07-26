@@ -493,6 +493,292 @@ class GAU_alpha(RoFormerV2):
         return mapping
 
 
+class RoformerEncoder(EncodeLayer, RoFormerV2):
+    def apply_embeddings(self, inputs):
+        """重写apply_embeddings，为输入加入position bias"""
+        inputs = inputs[:]  # 浅拷贝
+        x = inputs.pop(0)
+        z = self.layer_norm_conds[0]
+
+        x = self.apply(
+            inputs=x,
+            layer=Embedding,
+            input_dim=self.vocab_size,
+            output_dim=self.embedding_size,
+            embeddings_initializer=self.initializer,
+            mask_zero=True,
+            name='Embedding-Token'
+        )
+
+        x = self.apply(
+            inputs=self.simplify([x, z]),
+            layer=LayerNormalization,
+            conditional=(z is not None),
+            hidden_units=self.layer_norm_conds[1],
+            hidden_activation=self.layer_norm_conds[2],
+            hidden_initializer=self.initializer,
+            name='Encoder-Embedding-Norm'
+        )
+
+        x = self.apply(
+            inputs=x,
+            layer=Dropout,
+            rate=self.dropout_rate,
+            name='Encoder-Embedding-Dropout'
+        )
+
+        if self.embedding_size != self.hidden_size:
+            x = self.apply(
+                inputs=x,
+                layer=Dense,
+                units=self.hidden_size,
+                kernel_initializer=self.initializer,
+                name='Encoder-Embedding-Mapping'
+            )
+
+        return x
+
+    def apply_main_layers(self, inputs, index):
+        """重写apply_main_layers，主要为multihead-attention，add and norm， FFN，add and norm"""
+        x = inputs
+        z = self.layer_norm_conds[0]
+        attention_name = 'Encoder-Transformer-%d-MultiHeadSelfAttention' % index
+        feed_forward_name = 'Encoder-Transformer-%d-FeedForward' % index
+        position_bias = self.compute_position_bias(x)
+
+        xi = x
+        # self-attention
+        x = self.apply(
+            inputs=[x, x, x, position_bias],
+            layer=MultiHeadAttention,
+            arguments={
+                'a_bias': None,
+                'p_bias': 'rotary'
+            },
+            heads=self.num_attention_heads,
+            head_size=self.attention_head_size,
+            out_dim=self.hidden_size,
+            key_size=self.attention_key_size,
+            attention_dropout=self.attention_dropout_rate,
+            kernel_initializer=self.initializer,
+            name=attention_name
+        )
+
+        x = self.apply(
+            inputs=x,
+            layer=Dropout,
+            rate=self.dropout_rate,
+            name='%s-Dropout' % attention_name
+        )
+        x = self.apply(
+            inputs=[xi, x], layer=Add, name='%s-Add' % attention_name
+        )
+        x = self.apply(
+            inputs=self.simplify([x, z]),
+            layer=LayerNormalization,
+            conditional=(z is not None),
+            hidden_units=self.layer_norm_conds[1],
+            hidden_activation=self.layer_norm_conds[2],
+            hidden_initializer=self.initializer,
+            name='%s-Norm' % attention_name
+        )
+
+        # Feed Forward
+        xi = x
+        x = self.apply(
+            inputs=x,
+            layer=FeedForward,
+            units=self.intermediate_size,
+            activation=self.hidden_act,
+            kernel_initializer=self.initializer,
+            name=feed_forward_name
+        )
+        x = self.apply(
+            inputs=x,
+            layer=Dropout,
+            rate=self.dropout_rate,
+            name='%s-Dropout' % feed_forward_name
+        )
+        x = self.apply(
+            inputs=[xi, x], layer=Add, name='%s-Add' % feed_forward_name
+        )
+        x = self.apply(
+            inputs=self.simplify([x, z]),
+            layer=LayerNormalization,
+            conditional=(z is not None),
+            hidden_units=self.layer_norm_conds[1],
+            hidden_activation=self.layer_norm_conds[2],
+            hidden_initializer=self.initializer,
+            name='%s-Norm' % feed_forward_name
+        )
+
+        return x
+
+
+class RoformerDecoder(DecodeLayer, RoFormerV2):
+    """
+    从Transformer基类继承
+    """
+
+    def apply_embeddings(self, inputs):
+        """重写apply_embeddings，为target embedding加入position bias，encoder-output直接输出"""
+        c, x = inputs
+        z = self.layer_norm_conds[0]
+
+        # Embedding token, scale 和 sinusoidal 共用
+        x = self.apply(
+            inputs=x,
+            layer=Embedding,
+            input_dim=self.vocab_size,
+            output_dim=self.embedding_size,
+            embeddings_initializer=self.initializer,
+            mask_zero=True,
+            name='Embedding-Token'
+        )
+
+        x = self.apply(
+            inputs=self.simplify([x, z]),
+            layer=LayerNormalization,
+            conditional=(z is not None),
+            hidden_units=self.layer_norm_conds[1],
+            hidden_activation=self.layer_norm_conds[2],
+            hidden_initializer=self.initializer,
+            name='Decoder-Embedding-Norm'
+        )
+
+        x = self.apply(
+            inputs=x,
+            layer=Dropout,
+            rate=self.dropout_rate,
+            name='Decoder-Embedding-Dropout'
+        )
+
+        if self.embedding_size != self.hidden_size:
+            x = self.apply(
+                inputs=x,
+                layer=Dense,
+                units=self.hidden_size,
+                kernel_initializer=self.initializer,
+                name='Decoder-Embedding-Mapping'
+            )
+
+        return [c, x]
+
+    def apply_main_layers(self, inputs, index):
+        """重写apply_main_layers，主要为masked-multihead-attention->add and norm->multihead-attention->add and norm
+        ->FFN->add and norm"""
+        c, x = inputs
+        z = self.layer_norm_conds[0]
+        attention_name = 'Decoder-Transformer-%d-MultiHeadSelfAttention' % index
+        feed_forward_name = 'Decoder-Transformer-%d-FeedForward' % index
+        position_bias = self.compute_position_bias(x)
+
+        # 第一层self-attention的mask为时序mask，避免预测时看到后面的信息
+        attention_mask = self.compute_attention_bias(index)
+        xi = x
+        x = self.apply(
+            inputs=[x, x, x, attention_mask, position_bias],
+            layer=MultiHeadAttention,
+            arguments={
+                'a_bias': True,
+                'p_bias': 'rotary'
+            },
+            heads=self.num_attention_heads,
+            head_size=self.attention_head_size,
+            out_dim=self.hidden_size,
+            key_size=self.attention_key_size,
+            attention_dropout=self.attention_dropout_rate,
+            kernel_initializer=self.initializer,
+            name=attention_name
+        )
+
+        x = self.apply(
+            inputs=x,
+            layer=Dropout,
+            rate=self.dropout_rate,
+            name='%s-Dropout' % attention_name
+        )
+        x = self.apply(
+            inputs=[xi, x], layer=Add, name='%s-Add' % attention_name
+        )
+        x = self.apply(
+            inputs=self.simplify([x, z]),
+            layer=LayerNormalization,
+            conditional=(z is not None),
+            hidden_units=self.layer_norm_conds[1],
+            hidden_activation=self.layer_norm_conds[2],
+            hidden_initializer=self.initializer,
+            name='%s-Norm' % attention_name
+        )
+
+        # 第二层cross-attention
+        xi = x
+
+        x = self.apply(
+            inputs=[x, c, c],
+            layer=MultiHeadAttention,
+            arguments={
+                'a_bias': None,
+            },
+            heads=self.num_attention_heads,
+            head_size=self.attention_head_size,
+            out_dim=self.hidden_size,
+            key_size=self.attention_key_size,
+            attention_dropout=self.attention_dropout_rate,
+            kernel_initializer=self.initializer,
+            name=attention_name
+        )
+
+        x = self.apply(
+            inputs=x,
+            layer=Dropout,
+            rate=self.dropout_rate,
+            name='%s-Dropout' % attention_name
+        )
+        x = self.apply(
+            inputs=[xi, x], layer=Add, name='%s-Add' % attention_name
+        )
+        x = self.apply(
+            inputs=self.simplify([x, z]),
+            layer=LayerNormalization,
+            conditional=(z is not None),
+            hidden_units=self.layer_norm_conds[1],
+            hidden_activation=self.layer_norm_conds[2],
+            hidden_initializer=self.initializer,
+            name='%s-Norm' % attention_name
+        )
+        # Feed Forward
+        xi = x
+        x = self.apply(
+            inputs=x,
+            layer=FeedForward,
+            units=self.intermediate_size,
+            activation=self.hidden_act,
+            kernel_initializer=self.initializer,
+            name=feed_forward_name
+        )
+        x = self.apply(
+            inputs=x,
+            layer=Dropout,
+            rate=self.dropout_rate,
+            name='%s-Dropout' % feed_forward_name
+        )
+        x = self.apply(
+            inputs=[xi, x], layer=Add, name='%s-Add' % feed_forward_name
+        )
+        x = self.apply(
+            inputs=self.simplify([x, z]),
+            layer=LayerNormalization,
+            conditional=(z is not None),
+            hidden_units=self.layer_norm_conds[1],
+            hidden_activation=self.layer_norm_conds[2],
+            hidden_initializer=self.initializer,
+            name='%s-Norm' % feed_forward_name
+        )
+
+        return [c, x]
+
+
 if __name__ == '__main__':
     import os
     import numpy as np
