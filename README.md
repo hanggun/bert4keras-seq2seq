@@ -18,6 +18,11 @@ The result can be seen below, The *Transformer+* is transformer+RoPE, The *Trans
 |seq2seq|CSL-test|0.4366|0.2528|0.3853|0.1517|
 |BERT+Deocder|CSL-test|0.6597|0.5384|0.6272|0.4386|
 
+### Some Conclusion
+1. BERT encoder with Roformer Decoder has the best R-1 and R-l, demonstrate the strong representative ability of pretrained model
+2. Despite *Transformer++* does not outperform *Transformer+*, they have similar similar performance and in some other cases, I believe *Transformer++* is better than *Transformer+*
+3. *Transformer+* give a significant boost of 1.32 point in the BLEU compared to Transformer
+4. smooth play an important role in machine translation, without which the point of bleu decrease 1.52
 ### Updates 2022.7.22
 - To simplify the training and testing procedure, the train file is reconstructed. Now, just set `is_train` mode in config file, choose the right `.yaml` file, then run `python seq2seq_for_multi30k.py` or `python seq2seq_for_csl.py` or `python seq2seq_of_gau_encoder_for_csl` or `seq2seq_of_bert_encoder_for_multi30k.py` and you can get the similar result for machine translation task and NLG task.
 - 
