@@ -3,7 +3,7 @@ train:
   eval_num_samples: 100
 evaluate:
   train_mode: False
-  eval_num_samples: # None
+  eval_num_samples: # None，use all valid examples
 en_token_dict: 'data/multi30k/train.en.txt' # processed from build_dictionary.py
 de_token_dict: 'data/multi30k/train.de.txt'
 train_source_dir: 'data/multi30k/train.en'
@@ -15,11 +15,11 @@ test_target_dir: 'data/multi30k/test16.de'
 save_model_path: 'saved_model/multi30k/best_model.weights'
 log_dir: 'logs/'
 task_name: 'multi30k' # name for logs
-model_name: 'roformer'
+model_name: 'roformer' # 'transformer' 使用transformer
 
 
 belu_callback: False # if True save best model with belu score, else with best accuracy or loss
-smooth: True # True 可以加1的bleu
+smooth: True # True 使用smooth
 continue_train: False # if True continue train from existing checkpoint but need to change the initial learning rate
 initial_epoch: 0 # not useful for now
 share_embedding: False
@@ -29,7 +29,7 @@ epochs: 100
 max_c_len: 50
 max_t_len: 50
 seed: 42
-hidden_act: 'relu'
+hidden_act: 'relu' # ['gelu', 'linear'] this set change linear to GLU in FFN
 hidden_size: 256
 inter_hidden_size: 256
 n_layer: 4
