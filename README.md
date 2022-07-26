@@ -7,12 +7,12 @@ For multi30k-en-de dataset, we use BPE tokenization, English dataset and German 
 
 For machine translation dataset, we only use transformer architecture; For CSL NLG dataset, in addition to transformer, we also apply a BERT+Decoder architecture. Note that BERT+Decoder can achieve a similar performance with Unilm version. The reason that Seq2Seq model does not perform well in CSL dataset is that the training datase is small and in autoregressive mode, previous wrong word will have great impact on the subsequent predicted words.
 
-The result can be seen below, The *Transformer+* is transformer+RoPE, The *Transformer++* is transformer+RoPE+GLU, The symbol *-smooth* is without smooth in crossentropy loss.:</br>
+The result can be seen below, The *Transformer+* is transformer+RoPE, The *Transformer++* is transformer+RoPE+GLU, The symbol *w/o smooth* is without smooth in crossentropy loss.:</br>
 |model|dataset|rouge-1|rouge-2|rouge-l|bleu|
 |:---:|:---:|:---:|:---:|:---:|:---:|
 |seq2seq(Transformer)|multi30k-en-de-test2016|0.6817|0.4727|0.6551|0.3547|
 |seq2seq(Transformer+)|multi30k-en-de-test2016|0.6898|**0.4850**|0.6628|**0.3679**|
-|seq2seq(Transformer+|-smooth)|multi30k-en-de-test2016|0.6790|0.4688|0.6505|0.3527|
+|seq2seq(Transformer+ w/o smooth)|multi30k-en-de-test2016|0.6790|0.4688|0.6505|0.3527|
 |seq2seq(Transformer++)|multi30k-en-de-test2016|0.6895|0.4835|0.6640|0.3649|
 |BERT+Roformer|multi30k-en-de-test2016|**0.6908**|0.4772|**0.6644**|0.3589|
 |seq2seq|CSL-test|0.4366|0.2528|0.3853|0.1517|
