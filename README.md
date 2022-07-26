@@ -23,9 +23,12 @@ The result can be seen below, The *Transformer+* is transformer+RoPE, The *Trans
 2. Despite *Transformer++* does not outperform *Transformer+*, they have similar similar performance and in some other cases, I believe *Transformer++* is better than *Transformer+*
 3. *Transformer+* give a significant boost of 1.32 point in the BLEU compared to Transformer
 4. smooth play an important role in machine translation, without which the point of bleu decrease 1.52
+
+### Environments
+- bert4keras==0.11.3
+- tensorflow-gpu==1.15.5 (We use tf1 backend and pure keras because it is much faster than tf.keras)
 ### Updates 2022.7.22
 - To simplify the training and testing procedure, the train file is reconstructed. Now, just set `is_train` mode in config file, choose the right `.yaml` file, then run `python seq2seq_for_multi30k.py` or `python seq2seq_for_csl.py` or `python seq2seq_of_gau_encoder_for_csl` or `seq2seq_of_bert_encoder_for_multi30k.py` and you can get the similar result for machine translation task and NLG task.
-- 
 ### preprocessed data
 The preprocessed CSL data can be found in 链接：https://pan.baidu.com/s/1KEw25IJuj8ZLJD9JfjqzlQ 
 提取码：3n5g</br>
