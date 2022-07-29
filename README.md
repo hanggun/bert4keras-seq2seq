@@ -11,7 +11,7 @@ For multi30k-en-de dataset, we use BPE tokenization, English dataset and German 
 
 The result can be seen below, The *Transformer+* is transformer+RoPE, The *Transformer++* is transformer+RoPE+GLU, The symbol *w/o smooth* is without smooth in crossentropy loss.:</br>
 |model|dataset|rouge-1|rouge-2|rouge-l|bleu|CER|
-|:---:|:---:|:---:|:---:|:---:|:---:|
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 |seq2seq(Transformer)|multi30k-en-de-test2016|0.6817|0.4727|0.6551|0.3547|-|
 |seq2seq(Transformer+)|multi30k-en-de-test2016|0.6898|**0.4850**|0.6628|**0.3679**|-|
 |seq2seq(Transformer+ w/o smooth)|multi30k-en-de-test2016|0.6790|0.4688|0.6505|0.3527|-|
