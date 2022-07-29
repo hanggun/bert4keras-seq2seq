@@ -779,6 +779,106 @@ class RoformerDecoder(DecodeLayer, RoFormerV2):
         return [c, x]
 
 
+class ASRRoformerEncoder(RoformerEncoder):
+    """使用ASR做seq2seq和文本做seq2seq的区别在于文本传入的时token id，
+    而语音传入的是特征，因此在embedding上需要进行修改"""
+    def initializer(self, shape, dtype=None, order=2, gain=1.0):
+        """使用截断正态分布初始化
+        """
+        if shape[0] > 10000 or shape[0] < 10:
+            hidden_size = shape[1]
+        else:
+            hidden_size = shape[0]
+        gain *= self.num_hidden_layers**(-1. / order)
+        stddev = 1.13684723 / int(hidden_size)**0.5 * gain
+        return K.truncated_normal(shape, stddev=stddev)
+
+    def get_inputs(self):
+        """重写get_inputs，输入仅为token_ids"""
+        x_in = self.apply(
+            layer=Input, shape=(self.sequence_length, 80), name='Encoder-Input-Feature'
+        )
+        inputs = [x_in]
+
+        return inputs
+
+    def apply_embeddings(self, inputs):
+        inputs = inputs[:]  # 浅拷贝
+        x = inputs.pop(0)
+        z = self.layer_norm_conds[0]
+
+        # subsampling
+        x = self.apply(
+            inputs=x,
+            layer=Lambda,
+            function=lambda x: K.expand_dims(x, -1),
+            name='Encoder-Expand-Dim'
+        )
+
+        x = self.apply(
+            inputs=x,
+            layer=Conv2D,
+            filters=144,
+            kernel_size=3,
+            strides=2,
+            padding='same',
+            activation='relu',
+            kernel_initializer=self.initializer,
+            name='Encoder-Subsampling-1'
+        )
+        x = self.apply(
+            inputs=x,
+            layer=Conv2D,
+            filters=144,
+            kernel_size=3,
+            strides=2,
+            padding='same',
+            activation='relu',
+            kernel_initializer=self.initializer,
+            name='Encoder-Subsampling-2'
+        )
+        x = self.apply(
+            inputs=x,
+            layer=Reshape,
+            target_shape=(-1, K.int_shape(x)[-2]*K.int_shape(x)[-1]),
+            name='Encoder-Reshape'
+        )
+        x = self.apply(
+            inputs=x,
+            layer=Dense,
+            units=self.hidden_size,
+            kernel_initializer=self.initializer,
+            name='Encoder-Dense'
+        )
+
+        x = self.apply(
+            inputs=self.simplify([x, z]),
+            layer=LayerNormalization,
+            conditional=(z is not None),
+            hidden_units=self.layer_norm_conds[1],
+            hidden_activation=self.layer_norm_conds[2],
+            hidden_initializer=self.initializer,
+            name='Embedding-Norm'
+        )
+
+        x = self.apply(
+            inputs=x,
+            layer=Dropout,
+            rate=self.dropout_rate,
+            name='Embedding-Dropout'
+        )
+
+        if self.embedding_size != self.hidden_size:
+            x = self.apply(
+                inputs=x,
+                layer=Dense,
+                units=self.hidden_size,
+                kernel_initializer=self.initializer,
+                name='Embedding-Mapping'
+            )
+
+        return x
+
 if __name__ == '__main__':
     import os
     import numpy as np

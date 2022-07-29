@@ -21,7 +21,7 @@ import librosa
 import numpy as np
 import soundfile as sf
 import tensorflow as tf
-import tensorflow_io as tfio
+# import tensorflow_io as tfio
 
 from asr_utils.features import env_util, math_util
 # from features import gammatone

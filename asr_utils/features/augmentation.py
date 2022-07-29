@@ -20,7 +20,7 @@ AUGMENTATIONS = {
     "freq_masking": specaugment.FreqMasking,
     "time_masking": specaugment.TimeMasking,
 }
-tf.random.set_seed(config.seed)
+tf.set_random_seed(config.seed)
 
 
 class Augmentation:

@@ -16,7 +16,7 @@ import tensorflow as tf
 from asr_utils.features.base_method import AugmentationMethod
 from asr_utils.features.shape_util import shape_list
 from config import config
-tf.random.set_seed(config.seed)
+tf.set_random_seed(config.seed)
 
 
 class FreqMasking(AugmentationMethod):

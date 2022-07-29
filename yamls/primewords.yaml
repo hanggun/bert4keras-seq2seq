@@ -1,0 +1,39 @@
+train:
+  train_mode: True
+  eval_num_samples: 100
+  multi_card: False
+evaluate:
+  train_mode: False
+  eval_num_samples: 100 # None，use all valid examples
+  multi_card: False
+en_token_dict: '/home/zxa/ps/pretrain_models/chinese_GAU-alpha-char_L-24_H-768/vocab.txt'
+de_token_dict: '/home/zxa/ps/pretrain_models/chinese_GAU-alpha-char_L-24_H-768/vocab.txt'
+train_dir: '/home/zxa/ps/ASRmodel/data/primewords_md_2018_set1/train.csv'
+val_dir: '/home/zxa/ps/ASRmodel/data/primewords_md_2018_set1/dev.csv'
+test_dir: '/home/zxa/ps/ASRmodel/data/primewords_md_2018_set1/test.csv'
+save_model_path: 'saved_model/primewords/best_model.h5'
+log_dir: 'logs/'
+task_name: 'primewords' # name for logs
+model_name: 'roformer' # 'transformer' 使用transformer
+
+
+belu_callback: False # if True save best model with belu score, else with best accuracy or loss
+smooth: True # True 使用smooth
+continue_train: False # if True continue train from existing checkpoint but need to change the initial learning rate
+initial_epoch: 0 # not useful for now
+share_embedding: False
+learning_rate: 0.0001
+batch_size: 12
+warmup: 4000
+epochs: 100
+max_c_len: 256
+max_t_len: 256
+seed: 42
+hidden_act: ['gelu', 'linear'] # ['gelu', 'linear'] this set change linear to GLU in FFN
+hidden_size: 512
+inter_hidden_size: 2048
+enc_n_layer: 12
+dec_n_layer: 6
+n_head: 8
+dropout_rate: 0.1
+attention_dropout_rate: 0.1
